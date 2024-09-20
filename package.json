@@ -4,12 +4,14 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon  src/index.js"
   },
   "author": "murtuza",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
     "D": "^1.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
