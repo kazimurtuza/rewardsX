@@ -3,12 +3,18 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 const userSchema = new Schema(
   {
-    username: {
+    firstName: {
+      type: String,
+      require: true,
+    },
+    lastName: {
+      type: String,
+      require: true,
+    },
+    fullName: {
       type: String,
       require: true,
       unique: true,
-      lowecase: true,
-      trim: true,
       index: true,
     },
     email: {
@@ -22,11 +28,26 @@ const userSchema = new Schema(
       type: String,
       require: false,
     },
+    phone: {
+      type: String,
+    },
     password: {
       type: String,
       required: [true, "Password is required"],
     },
+    resetCode: {
+      type: String,
+    },
+    resetCodeTime: {
+      type: Date,
+    },
     refreshToken: {
+      type: String,
+    },
+    radious: {
+      type: String,
+    },
+    duration: {
       type: String,
     },
     isMailAuthentic: {
@@ -48,8 +69,31 @@ const userSchema = new Schema(
 );
 
 userSchema.pre("save", async function (next) {
+  if (this.isModified("firstName") || this.isModified("lastName")) {
+    this.fullName = this.firstName + " " + this.lastName;
+  }
   if (!this.isModified("password")) return next();
   this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+userSchema.pre("findOneAndUpdate", async function (next) {
+  const update = this.getUpdate(); // Access the update data
+
+  // Check if firstName or lastName is being updated
+  if (update.firstName || update.lastName) {
+    const fullName = `${update.firstName || ""} ${
+      update.lastName || ""
+    }`.trim();
+    this.setUpdate({ ...update, fullName }); // Update fullName based on firstName and lastName
+  }
+
+  // Check if the password is being updated
+  if (update.password) {
+    const hashedPassword = await bcrypt.hash(update.password, 10);
+    this.setUpdate({ ...update, password: hashedPassword }); // Update password with hashed password
+  }
+
   next();
 });
 
