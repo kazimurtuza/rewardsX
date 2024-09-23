@@ -1,4 +1,3 @@
-import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -8,13 +7,14 @@ import ejs from "ejs";
 import fs from "fs";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
+import { Vendor } from "../models/vendor.model.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const generateAccessAndRefereshTokens = async (userId) => {
   try {
-    const user = await User.findById(userId);
+    const user = await Vendor.findById(userId);
     const accessToken = await user.generateAccessToken();
     const refreshToken = await user.generateRefreshToken();
 
@@ -39,7 +39,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are Required");
   }
 
-  const existedUser = await User.findOne({
+  const existedUser = await Vendor.findOne({
     $or: [{ email }],
   });
   if (existedUser) {
@@ -48,7 +48,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //   const photo=req.files?.photo[0]?.path
 
-  const user = await User.create({
+  const user = await Vendor.create({
     firstName,
     lastName,
     phone,
@@ -56,7 +56,7 @@ const registerUser = asyncHandler(async (req, res) => {
     email,
   });
 
-  const createdUser = await User.findById(user._id).select(
+  const createdUser = await Vendor.findById(user._id).select(
     "-password -refreshToken"
   );
 
@@ -79,7 +79,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email or password is required");
   }
 
-  const user = await User.findOne({
+  const user = await Vendor.findOne({
     $or: [{ email }],
   });
 
@@ -97,7 +97,7 @@ const loginUser = asyncHandler(async (req, res) => {
     user._id
   );
 
-  const loggedInUser = await User.findById(user._id).select(
+  const loggedInUser = await Vendor.findById(user._id).select(
     "-password -refreshToken"
   );
 
@@ -124,7 +124,7 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const logoutUser = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(
+  await Vendor.findByIdAndUpdate(
     req.user._id,
     {
       $unset: {
@@ -150,7 +150,7 @@ const logoutUser = asyncHandler(async (req, res) => {
 const resetCodeVerify = asyncHandler(async (req, res) => {
   const { email, resetCode } = req.body;
 
-  const user = await User.findOne({ email, resetCode });
+  const user = await Vendor.findOne({ email, resetCode });
   if (!user) {
     return res.status(404).json(new ApiError(404, {}, "Code is not Valid"));
   }
@@ -162,14 +162,14 @@ const resetCodeVerify = asyncHandler(async (req, res) => {
 const resetCodeSend = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
-  const user = await User.findOne({ email });
+  const user = await Vendor.findOne({ email });
   if (!user) {
     throw new ApiError(404, "User does not exist");
   }
 
   var code = Math.floor(100000 + Math.random() * 900000);
 
-  const userInfo = await User.findOneAndUpdate(
+  const userInfo = await Vendor.findOneAndUpdate(
     { email: user.email }, // Query criteria to find the document
     { resetCode: code, resetCodeTime: new Date() }, // Update object
     { new: true } // Option to return the updated document
@@ -221,7 +221,7 @@ const resetCodeSend = asyncHandler(async (req, res) => {
 const passwordUpdate = asyncHandler(async (req, res) => {
   const { _id, password, confirmPassword } = req.body;
   if (password === confirmPassword) {
-    await User.findByIdAndUpdate(_id, { password });
+    await Vendor.findByIdAndUpdate(_id, { password });
   } else {
     return res
       .status(404)
@@ -250,7 +250,7 @@ const update = asyncHandler(async (req, res) => {
     password,
   } = req.body;
 
-  const update = await User.findByIdAndUpdate(
+  const update = await Vendor.findByIdAndUpdate(
     _id,
     {
       firstName,
