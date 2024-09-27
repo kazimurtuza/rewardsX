@@ -12,6 +12,32 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+var emailRegex =
+  /^[-!#$%&'*+\/0-9=?A-Z^_a-z{|}~](\.?[-!#$%&'*+\/0-9=?A-Z^_a-z`{|}~])*@[a-zA-Z0-9](-*\.?[a-zA-Z0-9])*\.[a-zA-Z](-?[a-zA-Z0-9])+$/;
+
+function isEmailValid(email) {
+  if (!email) return false;
+
+  if (email.length > 254) return false;
+
+  var valid = emailRegex.test(email);
+  if (!valid) return false;
+
+  // Further checking of some things regex can't handle
+  var parts = email.split("@");
+  if (parts[0].length > 64) return false;
+
+  var domainParts = parts[1].split(".");
+  if (
+    domainParts.some(function (part) {
+      return part.length > 63;
+    })
+  )
+    return false;
+
+  return true;
+}
+
 const generateAccessAndRefereshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -31,19 +57,25 @@ const generateAccessAndRefereshTokens = async (userId) => {
 };
 const registerUser = asyncHandler(async (req, res) => {
   const { firstName, lastName, password, email, phone } = req.body;
-  if (
-    [firstName, lastName, password, email].some((filed) => {
-      filed?.trim() === "";
-    })
-  ) {
-    throw new ApiError(400, "All fields are Required");
+  if (!firstName || !lastName || !password || !email || phone === "") {
+    return res
+      .status(409)
+      .json(new ApiError(409, {}, "All fields are required"));
   }
 
+  var validEmail = await isEmailValid(email);
+
+  if (!validEmail) {
+    return res.status(409).json(new ApiError(409, {}, "Email  is not valid"));
+  }
+  var fullName = firstName + " " + lastName;
   const existedUser = await User.findOne({
-    $or: [{ email }],
+    $or: [{ email }, { fullName }],
   });
   if (existedUser) {
-    throw new ApiError(409, "User with  email or username already exists");
+    return res
+      .status(409)
+      .json(new ApiError(409, {}, "User Name or Email already exists"));
   }
 
   //   const photo=req.files?.photo[0]?.path
@@ -69,14 +101,71 @@ const registerUser = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(200, createdUser, "user registered Successfully"));
+    .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
+
+// const subscription = asyncHandler(async (req, res) => {
+//   const HELCIM_API_URL =
+//     process.env.HELCIM_API_URL || "https://secure.helcim.com/api"; // API URL in env variable
+//   const API_KEY = process.env.HELCIM_API_KEY; // API Key in env variable
+
+//   // Assuming cardDetails are coming from the request body
+//   const {
+//     cardholderName,
+//     cardNumber,
+//     expMonth,
+//     expYear,
+//     cvv,
+//     amount,
+//     currency,
+//   } = {
+//     cardholderName: "John Doe",
+//     cardNumber: "4111111111111111",
+//     expMonth: "12",
+//     expYear: "2025",
+//     cvv: "123",
+//   };
+
+//   try {
+//     const response = await axios.post(
+//       `${HELCIM_API_URL}/transaction`, // Make sure to specify the correct endpoint
+//       {
+//         amount,
+//         cardholderName,
+//         cardNumber,
+//         expMonth,
+//         expYear,
+//         cvv,
+//         type: "purchase",
+//         currency: currency || "USD", // Default to USD if currency is not provided
+//       },
+//       {
+//         headers: {
+//           Authorization: `Bearer ${API_KEY}`,
+//         },
+//       }
+//     );
+
+//     if (response.data.status === "success") {
+//       res
+//         .status(200)
+//         .json({ message: "Payment successful", data: response.data });
+//     } else {
+//       res.status(400).json({ message: "Payment failed", data: response.data });
+//     }
+//   } catch (error) {
+//     console.error("Error processing payment:", error);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
 
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  if (!password && !email) {
-    throw new ApiError(400, "Email or password is required");
+  if (password == "" || email == "") {
+    return res
+      .status(400)
+      .json(new ApiError(400, {}, "Email or password is required"));
   }
 
   const user = await User.findOne({
@@ -84,13 +173,14 @@ const loginUser = asyncHandler(async (req, res) => {
   });
 
   if (!user) {
-    throw new ApiError(404, "User does not exist");
+    return res.status(401).json(new ApiError(401, {}, "User does not exist"));
   }
-
   const isPasswordValid = await user.isPasswordCorrect(password);
 
   if (!isPasswordValid) {
-    throw new ApiError(401, "Invalid user credentials");
+    return res
+      .status(401)
+      .json(new ApiError(401, {}, "Invalid user credentials"));
   }
 
   const { accessToken, refreshToken } = await generateAccessAndRefereshTokens(
